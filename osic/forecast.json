@@ -1,0 +1,34 @@
+{
+  "naive_no_decline": {
+    "laplace": -6.8995,
+    "rmse_ml": 262.7
+  },
+  "honest_tabular": {
+    "laplace": -6.8121,
+    "rmse_ml": 232.0
+  },
+  "competition_ref": -6.8,
+  "imaging": {
+    "n_ct_patients": 175,
+    "n_targets": 1361,
+    "tabular": {
+      "laplace": -6.8222,
+      "rmse_ml": 233.2
+    },
+    "tabular_plus_ct": {
+      "laplace": -6.8384,
+      "rmse_ml": 234.5
+    },
+    "delta_laplace": -0.0162,
+    "verdict": "CT adds nothing (kill)"
+  },
+  "hetero": {
+    "n_ct_patients": 175,
+    "const_sigma": -6.8222,
+    "het_sigma_tabular": -6.8088,
+    "het_sigma_tabular_ct": -6.8317,
+    "het_gain": 0.0134,
+    "ct_sigma_gain": -0.0229,
+    "verdict": "het-sigma HELPS (tabular)"
+  }
+}

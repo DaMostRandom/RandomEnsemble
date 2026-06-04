@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Random Ænsemble α — functional medical imaging</title>
+<meta name="description" content="Random Ænsemble — physics-constrained functional & predictive medical imaging. Function from motion, patient manifolds, continuous twins.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0a0f; color:#f0f0f0; font-family:'Courier New',monospace; overflow:hidden; }
+
+  #sidebar {
+    position:fixed; left:0; top:0; width:210px; height:100vh;
+    background:#111827; border-right:1px solid #1f2937;
+    display:flex; flex-direction:column; z-index:100; padding:12px 0; overflow-y:auto;
+  }
+  #sidebar h1 { font-size:12px; color:#00d4ff; padding:8px 14px 12px; letter-spacing:2px;
+    border-bottom:1px solid #1f2937; text-transform:uppercase; }
+  .gen { font-size:8px; color:#374151; padding:6px 14px; }
+  .view-btn { padding:9px 14px; cursor:pointer; border:none; background:none; color:#6b7280;
+    font-family:inherit; font-size:10px; text-align:left; border-left:3px solid transparent;
+    transition:all .2s; letter-spacing:1px; }
+  .view-btn:hover { color:#f0f0f0; background:#1f2937; }
+  .view-btn.active { color:#00d4ff; border-left-color:#00d4ff; background:#0f172a; }
+
+  .legend { padding:12px 14px; border-top:1px solid #1f2937; margin-top:8px; }
+  .legend-row { display:flex; align-items:center; gap:8px; padding:3px 0; font-size:9px; color:#9ca3af; }
+  .swatch { width:11px; height:11px; border-radius:3px; }
+
+  .summary { padding:12px 14px; border-top:1px solid #1f2937; font-size:9px; line-height:1.8; }
+  .summary .k { color:#6b7280; } .summary .v { color:#f0f0f0; float:right; }
+
+  #canvas-container { position:fixed; left:210px; top:0; width:calc(100vw - 210px); height:100vh; }
+  canvas { display:block; }
+
+  #matrix { position:fixed; left:210px; top:0; width:calc(100vw - 210px); height:100vh;
+    overflow:auto; padding:24px; display:none; background:#0a0a0f; }
+  #gallery { position:fixed; left:210px; top:0; width:calc(100vw - 210px); height:100vh;
+    overflow:auto; padding:22px 26px; display:none; background:#0a0a0f; }
+  #gallery h3 { color:#00d4ff; font-size:12px; letter-spacing:2px; margin:20px 0 10px;
+    border-bottom:1px solid #1f2937; padding-bottom:6px; }
+  .gwall { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:14px; }
+  .gcard { background:#111827; border:1px solid #1f2937; border-radius:8px; overflow:hidden;
+    cursor:pointer; transition:all .15s; }
+  .gcard:hover { border-color:#00d4ff; transform:translateY(-2px); box-shadow:0 6px 20px #00d4ff22; }
+  .gcard img { width:100%; height:155px; object-fit:cover; display:block; background:#000; }
+  .gcard .gc { padding:8px 10px; }
+  .gcard .gt { font-size:10px; color:#f0f0f0; line-height:1.3; }
+  .gcard .gs { font-size:8px; color:#6b7280; margin-top:3px; }
+  .gbadge { display:inline-block; font-size:7px; padding:1px 6px; border-radius:6px; margin-top:4px;
+    background:#13314f; color:#7fe0ff; letter-spacing:1px; }
+  .gbadge.play { background:#3a0d18; color:#ff6b8a; }
+  table.mx { border-collapse:collapse; font-size:10px; width:100%; }
+  table.mx th { position:sticky; top:0; background:#111827; color:#6b7280; padding:8px 10px;
+    text-align:left; letter-spacing:1px; border-bottom:1px solid #1f2937; z-index:2; }
+  table.mx td { padding:7px 10px; border-bottom:1px solid #131c2b; vertical-align:top; }
+  table.mx .dsname { color:#00d4ff; font-weight:bold; }
+  table.mx .dssub { color:#374151; font-size:8px; }
+  .cell { cursor:pointer; border-radius:4px; padding:5px 7px; transition:all .15s; line-height:1.4; }
+  .cell:hover { outline:1px solid #00d4ff; }
+  .cell .cv { font-size:11px; } .cell .cm { font-size:8px; color:#9ca3af; }
+  .chip { display:inline-block; font-size:8px; padding:1px 6px; border-radius:8px; margin-top:2px; }
+
+  #detail { position:fixed; right:0; top:0; width:330px; height:100vh; background:#0d1422;
+    border-left:1px solid #1f2937; z-index:90; padding:18px; overflow-y:auto;
+    transform:translateX(100%); transition:transform .25s; }
+  #detail.open { transform:none; }
+  #detail .close { float:right; cursor:pointer; color:#6b7280; font-size:14px; }
+  #detail h2 { font-size:13px; color:#00d4ff; letter-spacing:1px; margin-bottom:2px; }
+  #detail .sub { font-size:9px; color:#6b7280; margin-bottom:14px; }
+  #detail .big { font-size:30px; margin:6px 0; }
+  #detail .lbl { font-size:8px; color:#6b7280; letter-spacing:1px; text-transform:uppercase; margin-top:14px; }
+  #detail .row2 { display:flex; gap:12px; margin-top:6px; }
+  #detail .box { flex:1; background:#111827; border:1px solid #1f2937; border-radius:5px; padding:8px; }
+  #detail .box .bn { font-size:8px; color:#6b7280; } #detail .box .bv { font-size:15px; }
+  #detail .cite { font-size:9px; color:#5a7090; font-style:italic; margin-top:4px; line-height:1.5; }
+  #detail .hist { font-size:9px; border-top:1px solid #1f2937; padding:7px 0; line-height:1.6; }
+  #detail .hist .hm { color:#9ca3af; } #detail .hist .hn { color:#5a7090; }
+  #detail .route { font-size:9px; color:#9ca3af; background:#0a0f1a; border-left:2px solid #1f4060;
+    padding:7px 9px; margin-top:6px; line-height:1.6; }
+  #detail .open3d { width:100%; margin-top:14px; padding:10px; background:#0f2a40; border:1px solid #00d4ff;
+    color:#00d4ff; border-radius:6px; cursor:pointer; font-family:inherit; font-size:11px; letter-spacing:1px; }
+  #detail .open3d:hover { background:#13314f; color:#7fe0ff; }
+  #detail .gallery { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; }
+  #detail .thumb { cursor:pointer; border:1px solid #1f2937; border-radius:5px; overflow:hidden; background:#0a0f1a; }
+  #detail .thumb img { width:100%; display:block; }
+  #detail .thumb:hover { border-color:#00d4ff; }
+  #detail .tcap { font-size:7.5px; color:#7f9bb5; padding:3px 4px; line-height:1.3; }
+  #lightbox { position:fixed; inset:0; background:#000000ee; z-index:300; display:none;
+    align-items:center; justify-content:center; cursor:zoom-out; }
+  #lightbox img { max-width:93vw; max-height:93vh; border:1px solid #1f4060; border-radius:4px; }
+
+  #hud { position:fixed; right:16px; top:16px; background:#111827cc; border:1px solid #1f2937;
+    padding:10px 14px; border-radius:6px; font-size:10px; max-width:240px; line-height:1.7;
+    pointer-events:none; z-index:80; }
+  #hud .t { color:#00d4ff; font-size:11px; margin-bottom:4px; }
+  #controls-hint { position:fixed; bottom:12px; right:16px; font-size:9px; color:#374151; z-index:80; }
+  #err { position:fixed; left:230px; top:20px; color:#ff2d78; font-size:12px; z-index:200; display:none;
+    background:#1a0a12; border:1px solid #ff2d78; padding:14px; border-radius:6px; max-width:600px; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h1 style="text-transform:none;display:flex;align-items:center;gap:7px;font-family:'Space Grotesk',system-ui,sans-serif;font-size:16px;font-weight:600;letter-spacing:0.3px;padding-bottom:3px;border:none">
+    <svg width="24" height="24" viewBox="0 0 26 26" style="flex:0 0 auto">
+      <g stroke="#00d4ff" stroke-width="0.8" opacity="0.45">
+        <line x1="13" y1="12.5" x2="5" y2="7"/><line x1="13" y1="12.5" x2="13" y2="4"/>
+        <line x1="13" y1="12.5" x2="21.5" y2="8"/><line x1="13" y1="12.5" x2="7" y2="18"/><line x1="13" y1="12.5" x2="19" y2="19.5"/></g>
+      <g fill="#00d4ff"><circle cx="5" cy="7" r="1.6"/><circle cx="13" cy="4" r="1.6"/><circle cx="21.5" cy="8" r="1.6"/>
+        <circle cx="7" cy="18" r="1.6"/><circle cx="19" cy="19.5" r="1.6"/><circle cx="13" cy="12.5" r="2.3"/></g>
+    </svg>
+    <span style="color:#e6f3ff">Random Ænsemble<sup style="font-size:9px;color:#00d4ff;font-weight:700;margin-left:2px">&alpha;</sup></span>
+  </h1>
+  <div style="font-size:7.5px;color:#5e7b96;letter-spacing:2px;padding:0 14px 10px;border-bottom:1px solid #1f2937">PHYSICS-CONSTRAINED FUNCTIONAL IMAGING</div>
+  <div class="gen" id="genStamp">--</div>
+  <button class="view-btn active" id="btn3d" onclick="setView('3d')">&#9673; 3D PIPELINE</button>
+  <button class="view-btn" id="btng3d" onclick="setView('g3d')">&#9672; 3D GALLERY</button>
+  <button class="view-btn" id="btnmx" onclick="setView('mx')">&#9636; DATA MATRIX</button>
+  <button class="view-btn" id="btngal" onclick="setView('gallery')">&#9638; GALLERY</button>
+  <div class="legend" id="legend"></div>
+  <div class="summary" id="summary"></div>
+</div>
+
+<div id="canvas-container"></div>
+<div id="matrix"></div>
+<div id="gallery"></div>
+
+<div id="detail">
+  <span class="close" onclick="closeDetail()">&#10005;</span>
+  <div id="detailBody"></div>
+</div>
+
+<div id="lightbox" onclick="closeFig()"><img id="lbimg" src=""></div>
+<div id="hud"><div class="t" id="hudT">PIPELINE</div><div id="hudB"></div></div>
+<div id="controls-hint">Drag orbit &nbsp;|&nbsp; Scroll zoom &nbsp;|&nbsp; Click node</div>
+<div id="err"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="dashboard_data.js"></script>
+<script src="box_clouds.js"></script>
+<script src="node_figures.js"></script>
+<script src="gallery_clouds.js"></script>
+<script src="gallery_volume.js"></script>
+<script>
+const COL = { pass:0x00ff88, marginal:0xffc832, fail:0xff2d78, todo:0x2a3a50, info:0x3b82f6 };
+const HEX = { pass:'#00ff88', marginal:'#ffc832', fail:'#ff2d78', todo:'#2a3a50', info:'#3b82f6' };
+const LABEL = { pass:'PASS', marginal:'MARGINAL', fail:'FAIL', todo:'TODO', info:'LOGGED' };
+
+const D = window.VOXARA_DATA;
+let mode3d='pipeline', galScene=null, galCam=null, galCtrls=null, galBeats=[], dvrMeshes=[];  // 3D gallery
+if (!D) {
+  document.getElementById('err').style.display = 'block';
+  document.getElementById('err').innerHTML =
+    'dashboard_data.js not found or empty.<br>Run: <b>py -m backend.orchestrator.build_dashboard</b>';
+  throw new Error('no data');
+}
+
+// ── Sidebar fill ────────────────────────────────────────────────────────────
+document.getElementById('genStamp').textContent = 'generated ' + D.generated;
+(function(){
+  let lg = '';
+  ['pass','marginal','fail','todo','info'].forEach(s => {
+    lg += `<div class="legend-row"><div class="swatch" style="background:${HEX[s]}"></div>${LABEL[s]} — ${D.legend[s]}</div>`;
+  });
+  document.getElementById('legend').innerHTML = lg;
+
+  let np=0,nm=0,nf=0,nt=0;
+  D.datasets.forEach(d => d.stages.forEach(s => {
+    if(s.status==='pass')np++; else if(s.status==='marginal')nm++;
+    else if(s.status==='fail')nf++; else if(s.status==='todo')nt++;
+  }));
+  document.getElementById('summary').innerHTML =
+    `<div class="k">datasets<span class="v">${D.datasets.length}</span></div>`+
+    `<div class="k">pass<span class="v" style="color:${HEX.pass}">${np}</span></div>`+
+    `<div class="k">marginal<span class="v" style="color:${HEX.marginal}">${nm}</span></div>`+
+    `<div class="k">fail<span class="v" style="color:${HEX.fail}">${nf}</span></div>`+
+    `<div class="k">todo<span class="v" style="color:${HEX.todo}">${nt}</span></div>`;
+})();
+
+// ── Detail panel ────────────────────────────────────────────────────────────
+function fmtTarget(t) {
+  if(!t) return '';
+  const dir = t.higher_better ? '&ge;' : '&le;';
+  return `good ${dir} ${t.good} &nbsp; kill ${t.higher_better?'&le;':'&ge;'} ${t.kill}`;
+}
+function openNode(ds, st) {
+  const t = st.target;
+  const v = st.best_value;
+  let h = `<span class="close" onclick="closeDetail()">&#10005;</span>`;
+  h += `<h2>${ds.name}</h2><div class="sub">${ds.modality} &nbsp;|&nbsp; n=${ds.n}</div>`;
+  h += `<div class="lbl">stage</div><div style="font-size:13px;color:${HEX[st.status]}">${st.name} — ${LABEL[st.status]}</div>`;
+  h += `<button class="open3d" onclick="openIn3D('${ds.id}','${st.id}','${ds.name.replace(/'/g,'')}','${st.short.replace(/'/g,'')}')">&#9638; OPEN IN 3D VIEWER</button>`;
+  if(t){
+    h += `<div class="lbl">metric</div><div style="font-size:11px">${t.metric}${t.unit?' ('+t.unit+')':''}</div>`;
+    h += `<div class="big" style="color:${HEX[st.status]}">${v===null?'—':v}</div>`;
+    h += `<div class="row2">`;
+    h += `<div class="box"><div class="bn">TARGET</div><div class="bv" style="color:${HEX.pass}">${t.good}</div></div>`;
+    h += `<div class="box"><div class="bn">KILL</div><div class="bv" style="color:${HEX.fail}">${t.kill}</div></div>`;
+    h += `<div class="box"><div class="bn">SOTA</div><div class="bv">${t.baseline}</div></div>`;
+    h += `</div>`;
+    h += `<div class="cite">baseline: ${t.cite}</div>`;
+    h += `<div class="cite" style="color:#374151">${fmtTarget(t)}</div>`;
+  } else {
+    h += `<div class="lbl">no target defined for this stage</div>`;
+  }
+  const figs = (window.VOXARA_FIGS||{})[ds.id+':'+st.id];
+  if(figs && figs.length){
+    h += `<div class="lbl">results — ${figs.length} (click to enlarge)</div><div class="gallery">`;
+    figs.forEach(f => h += `<div class="thumb" onclick="openFig('${f[0]}')"><img src="${f[0]}" loading="lazy"><div class="tcap">${f[1]}</div></div>`);
+    h += `</div>`;
+  }
+  h += `<div class="lbl">pipeline route</div><div class="route">${ds.route}</div>`;
+  if(st.history && st.history.length){
+    h += `<div class="lbl">experiment history</div>`;
+    st.history.forEach(e => {
+      h += `<div class="hist"><span class="hm">${e.value}</span> — ${e.metric}`+
+           `${e.claim?` <span style="color:#00d4ff">[${e.claim}]</span>`:''}`+
+           `${e.note?`<br><span class="hn">${e.note}</span>`:''}`+
+           `${e.source?`<br><span class="hn" style="color:#2a3a50">src: ${e.source}</span>`:''}</div>`;
+    });
+  } else {
+    h += `<div class="lbl">experiment history</div><div class="hist hn">not run yet</div>`;
+  }
+  document.getElementById('detailBody').innerHTML = h;
+  document.getElementById('detail').classList.add('open');
+}
+function closeDetail(){ document.getElementById('detail').classList.remove('open'); if(selMesh){selMesh.scale.setScalar(1);selMesh=null;} }
+function openFig(src){
+  const o3d=m=>window.open('voxara_canvas.html?ds=acdc&stage=clinical&name=ACDC&sshort=FUNCTION&mode='+m,'_blank');
+  if(src.indexOf('9_beating.gif')>=0)   return o3d('beat4d');   // crisp NiiVue, anatomy + overlay + colorbar
+  if(src.indexOf('4_detj')>=0)          return o3d('detj');
+  if(src.indexOf('5_strain')>=0)        return o3d('strain');
+  if(src.indexOf('3_registration')>=0)  return o3d('reg');
+  document.getElementById('lbimg').src=src; document.getElementById('lightbox').style.display='flex'; }
+function closeFig(){ document.getElementById('lightbox').style.display='none'; }
+function openIn3D(ds, stage, name, sshort){
+  window.open('voxara_canvas.html?ds='+encodeURIComponent(ds)+'&stage='+encodeURIComponent(stage)+
+              '&name='+encodeURIComponent(name)+'&sshort='+encodeURIComponent(sshort), '_blank'); }
+
+// ── View toggle ─────────────────────────────────────────────────────────────
+function setView(v){
+  const showCanvas = (v==='3d'||v==='g3d');
+  document.getElementById('canvas-container').style.display = showCanvas?'block':'none';
+  document.getElementById('matrix').style.display = v==='mx'?'block':'none';
+  document.getElementById('gallery').style.display = v==='gallery'?'block':'none';
+  document.getElementById('hud').style.display = showCanvas?'block':'none';
+  document.getElementById('controls-hint').style.display = showCanvas?'block':'none';
+  document.getElementById('btn3d').classList.toggle('active', v==='3d');
+  document.getElementById('btng3d').classList.toggle('active', v==='g3d');
+  document.getElementById('btnmx').classList.toggle('active', v==='mx');
+  document.getElementById('btngal').classList.toggle('active', v==='gallery');
+  mode3d = (v==='g3d') ? 'gallery' : 'pipeline';
+  if(typeof controls!=='undefined' && controls) controls.enabled = (v==='3d');
+  if(galCtrls) galCtrls.enabled = (v==='g3d');
+  if(showCanvas) onResize();
+}
+
+// ── Matrix view: framework + roadmap + benchmarks, then the dataset×stage grid ─
+function buildRoadmap(){
+  const card=(c)=>HEX[c]; const chip=(s,t)=>`<span style="background:${HEX[s]}22;color:${HEX[s]};padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700">${t}</span>`;
+  const pillar=(n,name,desc,s,res)=>`<div style="flex:1;min-width:220px;background:#0c1626;border:1px solid ${HEX[s]}44;border-radius:6px;padding:10px 12px">
+    <div style="color:#5e7b96;font-size:9px;letter-spacing:1px">PILLAR ${n}</div>
+    <div style="color:#cde3f7;font-size:14px;font-weight:700;margin:2px 0 4px">${name} ${chip(s,LABEL[s])}</div>
+    <div style="color:#9fb6cc;font-size:11px;line-height:1.4">${desc}</div>
+    <div style="color:${HEX[s]};font-size:10px;margin-top:6px;font-family:monospace">${res}</div></div>`;
+  const col=(title,color,items)=>`<div style="flex:1;min-width:230px;background:#0c1626;border:1px solid #1c3550;border-radius:6px;padding:10px 12px">
+    <div style="color:${color};font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:6px">${title}</div>`+
+    items.map(t=>`<div style="color:#b8cadf;font-size:11px;line-height:1.5;padding-left:12px;text-indent:-12px">› ${t}</div>`).join('')+`</div>`;
+  const bench=(m,ds,cur,tgt,s)=>`<tr>
+    <td style="padding:5px 10px;color:#cde3f7">${m}</td><td style="padding:5px 10px;color:#7e96ad">${ds}</td>
+    <td style="padding:5px 10px;color:${HEX[s]};font-family:monospace;font-weight:700">${cur}</td>
+    <td style="padding:5px 10px;color:#9fb6cc;font-family:monospace">${tgt}</td>
+    <td style="padding:5px 10px">${chip(s,LABEL[s])}</td></tr>`;
+
+  let h=`<div style="margin-bottom:18px">
+   <div style="color:#00d4ff;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:4px">FRAMEWORK — function · context · forecast, physics-constrained, on a laptop</div>
+   <div style="color:#6b8299;font-size:10px;margin-bottom:10px">anatomy viewers show what a scan looks like; Voxara shows how it works, where it's heading, and what it means</div>
+   <div style="display:flex;gap:10px;flex-wrap:wrap">
+     ${pillar(1,'Functional Lens','det(J) → full strain tensor painted on anatomy; the dead muscle is the patch that does not deform','pass','EF r=0.918 · MINF AUC 0.95 · no labels')}
+     ${pillar(2,'Patient Galaxy','physics-feature manifold + geodesics — where a patient sits among all patients','pass','group AUC 0.885 (caveat: ACDC is EF-stratified)')}
+     ${pillar(3,'Continuous Twin','roll the patient state forward in time — forecast the trajectory','marginal','cardiac 4D twin works · OSIC FVC = competition parity (-6.81), but baseline-CT adds 0 → edge is function-from-MOTION, not static prognosis')}
+   </div></div>
+
+   <div style="color:#00d4ff;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:8px">ROADMAP</div>
+   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+     ${col('DONE','#00ff88',['det(J) → EF (r=0.918, no seg net)','regional strain + MINF infarct localization','physics manifold (biology AUC 0.885)','4D digital twin (cardiac)','NiiVue-grade 4D DVR gallery + legends + explanations','OSIC FVC forecast = competition parity, leak fixed','PROVED: baseline-CT adds 0 to lung prognosis (kill)'])}
+     ${col('NOW','#ffc832',['het-σ forecast: -6.81 → -6.809 (calibration win)','external / multi-center validation','EchoNet de-overfit (10k echo, R²→0.82)','ingest AIMI: Thyroid / LVH / SPADe'])}
+     ${col('NEXT','#3b82f6',['function-from-MOTION only (drop static-texture prognosis)','4D-CT lung compliance via det(J) (needs 4DCT, not OSIC)','registration Dice 0.755 → 0.80','per-voxel uncertainty on the field'])}
+   </div>
+
+   <div style="color:#00d4ff;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:8px">BENCHMARKS / GOALS — measured vs published baseline</div>
+   <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:22px;background:#0c1626;border:1px solid #1c3550;border-radius:6px;overflow:hidden">
+     <thead><tr style="background:#0e1a2b;color:#5e7b96;text-align:left;font-size:9px;letter-spacing:1px">
+       <th style="padding:6px 10px">METRIC</th><th style="padding:6px 10px">DATASET</th><th style="padding:6px 10px">CURRENT</th><th style="padding:6px 10px">TARGET (baseline)</th><th style="padding:6px 10px">STATUS</th></tr></thead><tbody>
+     ${bench('EF from field (r)','ACDC','0.918','&ge;0.85 · nnU-Net 0.95','pass')}
+     ${bench('Infarct localize (AUC)','ACDC MINF','0.95','&ge;0.90 · no labels','pass')}
+     ${bench('Biology manifold (AUC)','ACDC 5-class','0.885','&ge;0.70 · chance 0.20','pass')}
+     ${bench('Registration (Dice)','ACDC','0.755','&ge;0.80 clinical','marginal')}
+     ${bench('EF regression (r)','EchoNet','0.772','&ge;0.88 · Ouyang 2020','marginal')}
+     ${bench('Brain twin (r)','OASIS-2','0.105','&ge;0.70','fail')}
+     ${bench('Lung FVC forecast (Laplace)','OSIC','-6.81','&ge;-6.8 ref (= parity); CT adds 0','marginal')}
+   </tbody></table>
+   <div style="color:#00d4ff;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:8px">DATASET × STAGE</div>`;
+  return h;
+}
+
+(function buildMatrix(){
+  let h = buildRoadmap();
+  h += '<table class="mx"><thead><tr><th>DATASET</th>';
+  D.stages.forEach(s => h += `<th>${s.short}</th>`);
+  h += '</tr></thead><tbody>';
+  D.datasets.forEach((d, di) => {
+    h += `<tr><td><div class="dsname">${d.name}</div><div class="dssub">n=${d.n} · ${d.modality}</div></td>`;
+    d.stages.forEach((s, si) => {
+      if(s.status==='todo' && !s.target){
+        h += `<td><div class="cell" style="background:#0e1420;color:#2a3a50" onclick="openByIdx(${di},${si})">—</div></td>`;
+      } else {
+        const mname = s.target ? s.target.metric : '';
+        h += `<td><div class="cell" style="background:${HEX[s.status]}18;border:1px solid ${HEX[s.status]}55" onclick="openByIdx(${di},${si})">`+
+             `<div class="cv" style="color:${HEX[s.status]}">${s.best_value===null?'·':s.best_value}</div>`+
+             `<div class="cm">${mname}</div>`+
+             `<div class="chip" style="background:${HEX[s.status]}22;color:${HEX[s.status]}">${LABEL[s.status]}</div>`+
+             `</div></td>`;
+      }
+    });
+    h += '</tr>';
+  });
+  // manifold row
+  h += `<tr><td><div class="dsname">Δ_M manifold</div><div class="dssub">global (all datasets)</div></td>`;
+  h += `<td colspan="${D.stages.length}"><div style="display:flex;gap:10px">`;
+  D.manifold.forEach((m,mi) => {
+    h += `<div class="cell" style="background:${HEX[m.status]}18;border:1px solid ${HEX[m.status]}55;flex:0 0 auto" onclick="openManifold(${mi})">`+
+         `<div class="cv" style="color:${HEX[m.status]}">${m.value===null?'·':m.value}</div>`+
+         `<div class="cm">${m.metric}</div>`+
+         `<div class="chip" style="background:${HEX[m.status]}22;color:${HEX[m.status]}">${LABEL[m.status]}</div></div>`;
+  });
+  h += `</div></td></tr>`;
+  h += '</tbody></table>';
+  document.getElementById('matrix').innerHTML = h;
+})();
+function openByIdx(di,si){ openNode(D.datasets[di], D.datasets[di].stages[si]); }
+
+// ── 2D image GALLERY (restored) — all result figures on one wall ─────────────
+(function buildGallery(){
+  const FIGS = window.VOXARA_FIGS || {};
+  const dsName = {}; D.datasets.forEach(d => dsName[d.id]=d.name);
+  const byDs = {};
+  Object.keys(FIGS).forEach(key => {
+    const dsid=key.split(':')[0], stage=key.split(':')[1];
+    FIGS[key].forEach(f => { (byDs[dsid]=byDs[dsid]||[]).push({url:f[0], cap:f[1], stage}); });
+  });
+  const total = Object.values(byDs).reduce((a,b)=>a+b.length,0);
+  let h = `<div style="color:#6b7280;font-size:9px;margin-bottom:6px">${total} result visualizations · click to enlarge · the 4D heart plays in 3D</div>`;
+  Object.keys(byDs).forEach(dsid => {
+    h += `<h3>${dsName[dsid]||dsid}</h3><div class="gwall">`;
+    byDs[dsid].forEach(it => {
+      const is4d = it.url.indexOf('9_beating')>=0;
+      const is3d = it.url.indexOf('_cloud')>=0 || it.url.indexOf('galaxy')>=0;
+      const badge = is4d?'<span class="gbadge play">&#9658; 4D PLAY</span>':(is3d?'<span class="gbadge">3D</span>':'');
+      h += `<div class="gcard" onclick="openFig('${it.url}')"><img src="${it.url}" loading="lazy">`+
+           `<div class="gc"><div class="gt">${it.cap}</div><div class="gs">${dsName[dsid]} · ${it.stage}</div>${badge}</div></div>`;
+    });
+    h += `</div>`;
+  });
+  if(total===0) h += `<div style="color:#374151">no figures yet</div>`;
+  document.getElementById('gallery').innerHTML = h;
+})();
+function openManifold(mi){
+  const m = D.manifold[mi];
+  let h = `<span class="close" onclick="closeDetail()">&#10005;</span><h2>Δ_M Manifold</h2>`+
+    `<div class="sub">global geometry over all dataset embeddings</div>`+
+    `<div class="lbl">metric</div><div style="font-size:11px">${m.metric}</div>`+
+    `<div class="big" style="color:${HEX[m.status]}">${m.value===null?'—':m.value}</div>`+
+    `<div class="row2"><div class="box"><div class="bn">TARGET</div><div class="bv" style="color:${HEX.pass}">${m.target.good}</div></div>`+
+    `<div class="box"><div class="bn">KILL</div><div class="bv" style="color:${HEX.fail}">${m.target.kill}</div></div></div>`+
+    `<div class="cite">${m.target.cite}</div>`;
+  if(m.history&&m.history.length){ h+=`<div class="lbl">history</div>`;
+    m.history.forEach(e=>h+=`<div class="hist"><span class="hm">${e.value}</span> — ${e.metric}${e.note?`<br><span class="hn">${e.note}</span>`:''}</div>`); }
+  document.getElementById('detailBody').innerHTML=h;
+  document.getElementById('detail').classList.add('open');
+}
+
+// ══ 3D SCENE ════════════════════════════════════════════════════════════════
+const container = document.getElementById('canvas-container');
+const W = () => container.clientWidth || 1, Hh = () => container.clientHeight || 1;
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0x0a0a0f);
+container.appendChild(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(50, W()/Hh(), 0.1, 3000);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.06;
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+const pl1 = new THREE.PointLight(0x00d4ff, 1.4, 200); pl1.position.set(-20,30,30); scene.add(pl1);
+const pl2 = new THREE.PointLight(0xff2d78, 0.9, 200); pl2.position.set(30,10,30); scene.add(pl2);
+
+function textSprite(txt, color='#f0f0f0', size=42) {
+  const cv = document.createElement('canvas'); cv.width=512; cv.height=64;
+  const c = cv.getContext('2d'); c.fillStyle=color; c.font=`bold ${size}px Courier New`;
+  c.textBaseline='middle'; c.fillText(txt, 4, 34);
+  const tx = new THREE.CanvasTexture(cv); tx.minFilter=THREE.LinearFilter;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:tx, transparent:true }));
+  sp.scale.set(512/64*1.6, 1.6, 1); return sp;
+}
+
+const DX = 4.6;           // x spacing between stages
+const DZ = 4.4;           // z spacing between datasets
+const pickable = [];
+let selMesh = null;
+
+const nDs = D.datasets.length;
+D.datasets.forEach((ds, di) => {
+  const z = (di - (nDs-1)/2) * DZ;
+
+  // dataset label at left
+  const lab = textSprite(ds.name, '#00d4ff', 40);
+  lab.position.set(-(D.stages.length/2)*DX - 5.5, 0.6, z);
+  scene.add(lab);
+  const sub = textSprite('n='+ds.n, '#374151', 30);
+  sub.position.set(-(D.stages.length/2)*DX - 5.5, -0.7, z);
+  scene.add(sub);
+
+  ds.stages.forEach((st, si) => {
+    const x = (si - (D.stages.length-1)/2) * DX;
+    const col = COL[st.status];
+    const isTodoNoTgt = (st.status==='todo' && !st.target);
+
+    const geo = new THREE.BoxGeometry(2.6, 1.7, 1.4);
+    const mat = new THREE.MeshStandardMaterial({
+      color: col, emissive: col,
+      emissiveIntensity: isTodoNoTgt?0.04:0.5,
+      transparent:true, opacity: isTodoNoTgt?0.12:0.32,
+      roughness:0.3, metalness:0.5,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, 0, z);
+    mesh.userData = { di, si };
+    scene.add(mesh);
+    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({ color:col, transparent:true, opacity:isTodoNoTgt?0.25:0.8 })));
+    if(!isTodoNoTgt) pickable.push(mesh);
+
+    // REAL data cloud inside the box if we have it (cardiac myocardium colored by strain)
+    const CLOUDS = window.VOXARA_CLOUDS || {};
+    const realCloud = CLOUDS[ds.id+':'+st.id] || null;
+    if(realCloud){
+      const cp=realCloud.points, cc=realCloud.colors;
+      const pos=new Float32Array(cp.length*3), colr=new Float32Array(cp.length*3);
+      for(let k=0;k<cp.length;k++){ pos[k*3]=cp[k][0];pos[k*3+1]=cp[k][1];pos[k*3+2]=cp[k][2];
+        colr[k*3]=cc[k][0];colr[k*3+1]=cc[k][1];colr[k*3+2]=cc[k][2]; }
+      const pg=new THREE.BufferGeometry();
+      pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+      pg.setAttribute('color',new THREE.BufferAttribute(colr,3));
+      const pts=new THREE.Points(pg,new THREE.PointsMaterial({size:0.16,vertexColors:true,transparent:true,opacity:1.0,sizeAttenuation:true}));
+      mesh.add(pts); mesh.material.opacity=0.035; mesh.material.emissiveIntensity=0.15;
+    }
+    // each node gets its OWN coordinate grid (a little playground floor)
+    {
+      const ngrid=new THREE.GridHelper(2.4,4,col,0x16263c);
+      ngrid.position.set(x,-0.86,z);
+      ngrid.material.transparent=true; ngrid.material.opacity=isTodoNoTgt?0.05:0.30;
+      scene.add(ngrid);
+    }
+
+    // "result as 3D inside the box" — particle glyph; denser when result is stronger
+    // connector to previous stage
+    if(si>0){
+      const xp = (si-1 - (D.stages.length-1)/2)*DX;
+      const prev = ds.stages[si-1];
+      const lcol = (prev.status==='fail'||st.status==='fail')?0xff2d78:
+                   (prev.status==='pass'&&st.status==='pass')?0x00ff88:0x374151;
+      scene.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(xp+1.3,0,z), new THREE.Vector3(x-1.3,0,z)]),
+        new THREE.LineBasicMaterial({ color:lcol, transparent:true, opacity:0.4 })));
+    }
+  });
+});
+
+// stage headers along the top
+D.stages.forEach((s, si) => {
+  const x = (si - (D.stages.length-1)/2) * DX;
+  const sp = textSprite(s.short, '#6b7280', 32);
+  sp.position.set(x, (nDs/2)*DZ - 0.5, 0); sp.scale.set(5,1.3,1);
+  scene.add(sp);
+});
+
+const grid = new THREE.GridHelper(80, 32, 0x1f2937, 0x131c2b);
+grid.position.y = -1.6; grid.material.opacity=0.25; grid.material.transparent=true;
+scene.add(grid);
+
+camera.position.set(0, 16, 30);
+controls.target.set(0,0,0);
+
+// raycasting
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+let down=null;
+renderer.domElement.addEventListener('pointerdown', e=>{ down=[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e=>{
+  if(!down) return;
+  if(mode3d!=='pipeline'){ down=null; return; }
+  if(Math.abs(e.clientX-down[0])>5||Math.abs(e.clientY-down[1])>5) return; // drag, not click
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX-r.left)/r.width)*2-1;
+  mouse.y = -((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(pickable);
+  if(hit.length){
+    const m = hit[0].object;
+    if(selMesh) selMesh.scale.setScalar(1);
+    selMesh = m; m.scale.setScalar(1.25);
+    const {di,si} = m.userData;
+    openNode(D.datasets[di], D.datasets[di].stages[si]);
+    document.getElementById('hudT').textContent = D.datasets[di].name;
+    document.getElementById('hudB').innerHTML = D.datasets[di].stages[si].name+
+      ' — <span style="color:'+HEX[D.datasets[di].stages[si].status]+'">'+
+      LABEL[D.datasets[di].stages[si].status]+'</span>';
+  }
+});
+
+function onResize(){
+  renderer.setSize(W(), Hh());
+  camera.aspect = W()/Hh(); camera.updateProjectionMatrix();
+  if(galCam){ galCam.aspect = W()/Hh(); galCam.updateProjectionMatrix(); }
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+// colormaps (JS side, must match the GLSL versions below) for the colorbar legend
+function _cl(v){ return Math.max(0,Math.min(1,v)); }
+function _mix3(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+function cmapJS(t,m){ t=_cl(t);
+  if(m===0) return [_cl(1.5-Math.abs(4*t-3)), _cl(1.5-Math.abs(4*t-2)), _cl(1.5-Math.abs(4*t-1))]; // jet
+  if(m===1){ const a=[0.05,0.03,0.53],b=[0.6,0.0,0.6],c=[0.9,0.35,0.1],e=[0.96,0.95,0.14];          // plasma
+    if(t<0.33) return _mix3(a,b,t/0.33); if(t<0.66) return _mix3(b,c,(t-0.33)/0.33); return _mix3(c,e,(t-0.66)/0.34); }
+  return [_cl(t*3),_cl(t*3-1),_cl(t*3-2)];                                                          // hot
+}
+function gradientSprite(cmapId, lo, hi, title){
+  const c=document.createElement('canvas'); c.width=110; c.height=300; const g=c.getContext('2d');
+  for(let y=0;y<256;y++){ const col=cmapJS(1-y/255, cmapId);
+    g.fillStyle='rgb('+(col[0]*255|0)+','+(col[1]*255|0)+','+(col[2]*255|0)+')'; g.fillRect(8,22+y,34,1); }
+  g.strokeStyle='#3a546b'; g.strokeRect(8,22,34,256);
+  g.fillStyle='#cfe3f4'; g.font='17px monospace'; g.textAlign='left';
+  g.fillText(hi,46,34); g.fillText(lo,46,278); g.fillText(title,4,16);
+  const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearFilter;
+  return new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+}
+
+// pathology-group legend (for the physics manifolds)
+const GROUP_LEGEND = [['NOR','#38ff14'],['MINF','#ff6b33'],['DCM','#ff00aa'],['HCM','#00d4ff'],['RV/ARV','#ffd700']];
+function legendSprite(){
+  const c=document.createElement('canvas'); c.width=150; c.height=170; const g=c.getContext('2d');
+  g.fillStyle='rgba(8,16,28,0.82)'; g.fillRect(0,0,150,170); g.strokeStyle='#23415e'; g.strokeRect(0,0,150,170);
+  g.fillStyle='#9fc0dd'; g.font='15px monospace'; g.fillText('pathology',10,20);
+  GROUP_LEGEND.forEach((it,k)=>{ const y=40+k*26; g.fillStyle=it[1]; g.fillRect(12,y-12,16,16);
+    g.fillStyle='#d7e6f4'; g.fillText(it[0],36,y+1); });
+  const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearFilter;
+  return new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+}
+
+// per-result explanation: what we OBSERVE, what we CONCLUDE, how RELIABLE
+const EXPLAIN = {
+ strain:["radial strain E_rr drops to ~0 (dark) in a focal wall sector of the MINF heart",
+   "that low-strain sector IS the infarct - strain localizes dead muscle with NO labels",
+   "n=100 ACDC, MINF-vs-NOR AUC 0.95, strain<->EF r=0.86 - strong"],
+ detj:["det(J)<1 (blue) where muscle compresses in systole, >1 (red) where it thins",
+   "det(J) is the raw volume-change field; EF = 1 - mean det(J) gives EF r=0.918",
+   "autograd Jacobian of the ED->ES warp; beats intensity-EF 0.71, nears nnU-Net 0.95"],
+ reg:["the deformation |grad phi| peaks at the contracting LV free wall",
+   "the learned ED->ES warp is the deformation everything downstream is built on",
+   "registration Dice 0.755; smooth field (omega0=6) avoids high-freq hallucination"],
+ volume:["the SOURCE - real native cine beating through the cardiac cycle (4D)",
+   "everything downstream is derived from this; in-plane crisp, Z soft (~6 slices = data limit)",
+   "ground-truth cine + gradient-shaded ray-cast DVR - same data & algorithm family as NiiVue"],
+ phi:["warp vectors point inward / circumferentially as the wall contracts",
+   "phi is a continuous differentiable motion field; strain & det(J) are its derivatives",
+   "SIREN reg, image-MSE + diffusion smoothness - physically plausible field"],
+ beat:["the myocardial ring contracts inward and changes volume through one cycle",
+   "a continuous digital twin of the beat, interpolated from just ED + ES",
+   "2-frame interpolation (not full cine) - motion is physics-constrained, not measured"],
+ circ:["circumferential strain E_cc (blue = shortening) around the ring",
+   "complements E_rr; together they form the in-plane strain tensor",
+   "2D in-plane projection avoids through-plane leak; sign-correct after fix"],
+ galaxy:["pathology groups separate in physics-feature space (strain, het, det(J))",
+   "physics features build a patient manifold; group AUC 0.885, beats learned encoders here",
+   "HONEST: ACDC is EF-stratified by design, so groups partly track EF; value = label-free"],
+ validation:["MINF (orange) clusters at low deadest-wall strain AND low EF",
+   "the min-sector-strain axis ranks infarct severity",
+   "MINF AUC 0.95; small single-center n~100 - external validation pending"],
+};
+function _wrap(g,txt,max){ const w=txt.split(' '),out=[]; let ln='';
+  for(const word of w){ const t=ln?ln+' '+word:word; if(g.measureText(t).width>max && ln){ out.push(ln); ln=word; } else ln=t; }
+  if(ln) out.push(ln); return out; }
+function panelSprite(title, lines){
+  const W=520,H=340,c=document.createElement('canvas'); c.width=W; c.height=H; const g=c.getContext('2d');
+  g.fillStyle='rgba(7,14,24,0.88)'; g.fillRect(0,0,W,H); g.strokeStyle='#1f4060'; g.lineWidth=2; g.strokeRect(1,1,W-2,H-2);
+  g.fillStyle='#00d4ff'; g.font='bold 24px monospace'; g.fillText(title,16,34);
+  const TAGS=[['OBSERVE','#7fd0ff'],['CONCLUDE','#74e39c'],['RELIABILITY','#ffb066']];
+  let y=66;
+  lines.forEach((ln,i)=>{ g.font='bold 17px monospace'; g.fillStyle=TAGS[i][1]; g.fillText(TAGS[i][0],16,y);
+    g.font='16px monospace'; g.fillStyle='#cdddec';
+    _wrap(g,ln,W-32).forEach((row,k)=>{ g.fillText(row,16,y+22+k*21); }); y+=22+21*_wrap(g,ln,W-32).length+10; });
+  const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearFilter;
+  return new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+}
+
+// WebGL2 ray-march DVR (NiiVue-quality) — gradient shading + colormap overlay, 4D frame stacks
+const _Tex3D = THREE.Data3DTexture || THREE.DataTexture3D;   // r137+ vs r128 name
+function _tex3d(b64,w,h,d){
+  const raw=atob(b64), a=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) a[i]=raw.charCodeAt(i);
+  const t=new _Tex3D(a,w,h,d); t.format=THREE.RedFormat; t.type=THREE.UnsignedByteType;
+  t.minFilter=THREE.LinearFilter; t.magFilter=THREE.LinearFilter; t.unpackAlignment=1; t.needsUpdate=true; return t;
+}
+const DVR_VS=`out vec3 vLocal; void main(){ vLocal=position+0.5;
+  gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
+const DVR_FS=`precision highp float; precision highp sampler3D;
+  in vec3 vLocal; uniform sampler3D uAnat,uMask,uField; uniform vec3 uCamLocal,uVox;
+  uniform float uThresh,uOpacity,uClip,uSteps,uShowOverlay; uniform int uCmap; out vec4 outColor;
+  vec3 jet(float t){ return clamp(vec3(1.5-abs(4.0*t-3.0),1.5-abs(4.0*t-2.0),1.5-abs(4.0*t-1.0)),0.0,1.0); }
+  vec3 plasma(float t){ vec3 a=vec3(0.05,0.03,0.53),b=vec3(0.6,0.0,0.6),c=vec3(0.9,0.35,0.1),e=vec3(0.96,0.95,0.14);
+    if(t<0.33) return mix(a,b,t/0.33); if(t<0.66) return mix(b,c,(t-0.33)/0.33); return mix(c,e,(t-0.66)/0.34); }
+  vec3 hot(float t){ return clamp(vec3(t*3.0,t*3.0-1.0,t*3.0-2.0),0.0,1.0); }
+  vec3 cmap(float t,int m){ if(m==0) return jet(t); if(m==1) return plasma(t); return hot(t); }
+  vec3 grad(vec3 p){ vec3 e=uVox;     // central-difference gradient = normal (the crispness, like NiiVue)
+    return vec3(texture(uAnat,p+vec3(e.x,0,0)).r-texture(uAnat,p-vec3(e.x,0,0)).r,
+                texture(uAnat,p+vec3(0,e.y,0)).r-texture(uAnat,p-vec3(0,e.y,0)).r,
+                texture(uAnat,p+vec3(0,0,e.z)).r-texture(uAnat,p-vec3(0,0,e.z)).r); }
+  vec2 hitBox(vec3 ro,vec3 rd){ vec3 t0=(vec3(0.0)-ro)/rd,t1=(vec3(1.0)-ro)/rd;
+    vec3 a=min(t0,t1),b=max(t0,t1); return vec2(max(max(a.x,a.y),a.z),min(min(b.x,b.y),b.z)); }
+  void main(){ vec3 ro=uCamLocal, rd=normalize(vLocal-uCamLocal);
+    vec2 t=hitBox(ro,rd); t.x=max(t.x,0.0); if(t.x>t.y) discard;
+    int N=int(uSteps); float dt=(t.y-t.x)/float(N); vec3 p=ro+rd*t.x; vec4 acc=vec4(0.0);
+    for(int i=0;i<320;i++){ if(i>=N) break;
+      if(p.x<=uClip){ float anat=texture(uAnat,p).r;
+        if(anat>uThresh){
+          vec3 g=grad(p); float gm=length(g); vec3 nrm=gm>1e-4? -g/gm : -rd;
+          float diff=clamp(dot(nrm,-rd),0.0,1.0);
+          vec3 hlf=normalize(-rd+vec3(0.3,0.6,0.4)); float spec=pow(clamp(dot(nrm,hlf),0.0,1.0),16.0)*0.4;
+          float sh=0.30+0.78*diff; float al=anat*uOpacity*0.10; vec3 col=vec3(anat*0.82+0.14)*sh+spec;
+          if(uShowOverlay>0.5){ float msk=texture(uMask,p).r;
+            if(msk>0.30){ float fv=texture(uField,p).r;
+              col=mix(vec3(anat*0.82+0.14)*sh, cmap(fv,uCmap)*(0.55+0.6*diff)+spec, 0.92); al=max(al, msk*0.30); } }
+          acc.rgb+=(1.0-acc.a)*al*col; acc.a+=(1.0-acc.a)*al; } }
+      p+=rd*dt; if(acc.a>=0.98) break; }
+    if(acc.a<0.02) discard; outColor=vec4(acc.rgb,acc.a); }`;
+
+// 4D DVR: anatFrames (+ optional mask/field frames) swapped by the heartbeat phase
+function make4DVR(dims, anatFrames, opts){
+  opts = opts || {};
+  const aTex = anatFrames.map(b=>_tex3d(b,dims.w,dims.h,dims.d));
+  const hasF = !!opts.fieldFrames;
+  const mTex = hasF ? opts.maskFrames.map(b=>_tex3d(b,dims.w,dims.h,dims.d)) : null;
+  const fTex = hasF ? opts.fieldFrames.map(b=>_tex3d(b,dims.w,dims.h,dims.d)) : null;
+  const mat=new THREE.ShaderMaterial({ glslVersion:THREE.GLSL3, transparent:true, side:THREE.BackSide, depthWrite:false,
+    uniforms:{ uAnat:{value:aTex[0]}, uMask:{value:hasF?mTex[0]:aTex[0]}, uField:{value:hasF?fTex[0]:aTex[0]},
+      uCamLocal:{value:new THREE.Vector3()}, uThresh:{value:0.10}, uOpacity:{value:1.0}, uClip:{value:1.0},
+      uSteps:{value:176}, uShowOverlay:{value:hasF?1.0:0.0}, uCmap:{value:opts.cmap||0},
+      uVox:{value:new THREE.Vector3(1/dims.w,1/dims.h,1/dims.d)} },
+    vertexShader:DVR_VS, fragmentShader:DVR_FS });
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat);
+  mesh.userData.frames = {T:aTex.length, aTex, mTex, fTex, last:-1};
+  return mesh;
+}
+
+// ── 3D GALLERY scene — rendered by the SAME working renderer (scene-swap) ────
+(function buildGalleryScene(){
+  galScene = new THREE.Scene();
+  galScene.add(new THREE.AmbientLight(0xffffff, 0.75));
+  const EX = window.VOXARA_GALLERY || []; const ncol=3, cell=8.0;
+  EX.forEach((ex,i)=>{
+    const cx=(i%ncol-(ncol-1)/2)*cell, cz=Math.floor(i/ncol)*cell*0.9;
+    const big = (ex.id==='volume');
+    const fw = big?4.0:3.4, fh = big?3.4:2.4;
+    const frame=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(fw,fh,1.9)),
+      new THREE.LineBasicMaterial({color:0x1f4060,transparent:true,opacity:0.55}));
+    frame.position.set(cx,0,cz); galScene.add(frame);
+    const g=new THREE.GridHelper(big?3.8:3.3,5,0x16263c,0x16263c); g.position.set(cx,-fh/2+0.1,cz);
+    g.material.transparent=true; g.material.opacity=0.28; galScene.add(g);
+    const DVR_SPEC = { volume:{field:null}, detj:{field:'detj',cmap:0,lo:'0.4',hi:'1.6',cb:'det(J)'},
+                       strain:{field:'strain',cmap:1,lo:'0',hi:'0.6',cb:'E_rr'},
+                       reg:{field:'reg',cmap:2,lo:'0',hi:'max',cb:'|disp|'} };
+    const V = window.VOXARA_VOL;
+    const spec = V ? DVR_SPEC[ex.id] : null;
+    if(spec){
+      let dvr, dims;
+      if(spec.field){ dims=V.cAnat;
+        dvr=make4DVR(dims, V.cAnat.frames, {maskFrames:V.cMask.frames, fieldFrames:V.fields[spec.field], cmap:spec.cmap}); }
+      else { dims=V.src; dvr=make4DVR(dims, V.src.frames, {}); }
+      dvr.position.set(cx,0,cz);
+      const mx=Math.max(dims.w,dims.h), base=big?2.7:1.55;
+      dvr.scale.set(base*dims.w/mx, base*dims.h/mx, base*0.42); galScene.add(dvr); dvrMeshes.push(dvr);
+      if(spec.field){ const cb=gradientSprite(spec.cmap, spec.lo, spec.hi, spec.cb);
+        cb.position.set(cx+1.7,0.1,cz); cb.scale.set(0.85,2.3,1); galScene.add(cb); }
+    } else {
+    const cp=ex.points, cc=ex.colors, pos=new Float32Array(cp.length*3), colr=new Float32Array(cp.length*3);
+    for(let k=0;k<cp.length;k++){ pos[k*3]=cp[k][0];pos[k*3+1]=cp[k][1];pos[k*3+2]=cp[k][2];
+      colr[k*3]=cc[k][0];colr[k*3+1]=cc[k][1];colr[k*3+2]=cc[k][2]; }
+    const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    pg.setAttribute('color',new THREE.BufferAttribute(colr,3));
+    let obj;
+    if(ex.type==='vectors'){
+      obj=new THREE.LineSegments(pg,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.9}));
+    } else {
+      obj=new THREE.Points(pg,new THREE.PointsMaterial({size:0.13,vertexColors:true}));
+    }
+    obj.position.set(cx,0,cz); obj.scale.set(1.5,1.5,1.5); galScene.add(obj);
+    if(ex.type==='beat' && ex.disps){
+      const n=ex.disps.length, base=pos.slice(0), disp=new Float32Array(n*3);
+      for(let k=0;k<n;k++){ disp[k*3]=ex.disps[k][0];disp[k*3+1]=ex.disps[k][1];disp[k*3+2]=ex.disps[k][2]; }
+      // sparse registration warp vectors (every 6th point) that grow over the cycle
+      const step=6, vn=Math.floor(n/step), vp=new Float32Array(vn*6), vb=new Float32Array(vn*6), vc=new Float32Array(vn*6);
+      for(let j=0;j<vn;j++){ const k=j*step;
+        for(let dd=0;dd<3;dd++){ vb[j*6+dd]=base[k*3+dd]; vb[j*6+3+dd]=base[k*3+dd]+disp[k*3+dd];
+          vp[j*6+dd]=base[k*3+dd]; vp[j*6+3+dd]=base[k*3+dd]; }
+        const mg=Math.min(1,Math.hypot(disp[k*3],disp[k*3+1],disp[k*3+2])*3.0);
+        for(let e2=0;e2<2;e2++){ vc[j*6+e2*3]=mg; vc[j*6+e2*3+1]=0.3*(1-mg); vc[j*6+e2*3+2]=1-mg; } }
+      const vg=new THREE.BufferGeometry();
+      vg.setAttribute('position',new THREE.BufferAttribute(vp,3)); vg.setAttribute('color',new THREE.BufferAttribute(vc,3));
+      const vl=new THREE.LineSegments(vg,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.5}));
+      vl.position.set(cx,0,cz); vl.scale.set(1.5,1.5,1.5); galScene.add(vl);
+      galBeats.push({geom:pg, base, disp, detj:ex.detj||null, colAttr:pg.attributes.color, vg, vb});
+    }
+    }
+    const lab=textSprite(ex.title,'#00d4ff',26); lab.position.set(cx,big?2.4:1.9,cz); lab.scale.set(5.0,1.2,1); galScene.add(lab);
+    const cap=textSprite(ex.caption,'#5e7b96',16); cap.position.set(cx,big?-2.1:-1.85,cz); cap.scale.set(5.6,1.1,1); galScene.add(cap);
+    if(ex.id==='galaxy' || ex.id==='validation'){ const lg=legendSprite();
+      lg.position.set(cx+2.0,0.2,cz); lg.scale.set(1.3,1.5,1); galScene.add(lg); }
+    if(EXPLAIN[ex.id]){ const pan=panelSprite(ex.title, EXPLAIN[ex.id]);
+      pan.position.set(cx,(big?-3.9:-3.3),cz); pan.scale.set(3.5,2.3,1); galScene.add(pan); }
+  });
+  const rows=Math.max(1,Math.ceil(EX.length/ncol));
+  galCam = new THREE.PerspectiveCamera(50, W()/Hh(), 0.1, 2000);
+  galCam.position.set(0, 12, 24);
+  galCtrls = new THREE.OrbitControls(galCam, renderer.domElement);
+  galCtrls.enableDamping=true; galCtrls.dampingFactor=0.06; galCtrls.enabled=false;
+  galCtrls.target.set(0,0,(rows-1)*cell*0.9/2); galCtrls.update();
+})();
+
+(function loop(){
+  requestAnimationFrame(loop);
+  if(mode3d==='gallery' && galScene){
+    const a=(Math.sin(Date.now()*0.0025)+1)/2;   // 0..1 ping-pong = the heartbeat
+    galBeats.forEach(b=>{ const p=b.geom.attributes.position.array;
+      for(let k=0;k<p.length;k++) p[k]=b.base[k]+a*b.disp[k];
+      b.geom.attributes.position.needsUpdate=true;
+      if(b.detj && b.colAttr){ const c=b.colAttr.array;                     // det(J) volume-change over the cycle
+        for(let k=0;k<b.detj.length;k++){ const dv=1.0+a*(b.detj[k]-1.0), t=Math.max(0,Math.min(1,(dv-0.4)/1.2)), col=cmapJS(t,0);
+          c[k*3]=col[0]; c[k*3+1]=col[1]; c[k*3+2]=col[2]; } b.colAttr.needsUpdate=true; }
+      if(b.vg){ const vp=b.vg.attributes.position.array;                    // registration warp vectors grow with phase
+        for(let j=0;j<vp.length/6;j++){ for(let dd=0;dd<3;dd++) vp[j*6+3+dd]=b.vb[j*6+dd]+a*(b.vb[j*6+3+dd]-b.vb[j*6+dd]); }
+        b.vg.attributes.position.needsUpdate=true; } });
+    dvrMeshes.forEach(m=>{ m.material.uniforms.uCamLocal.value.copy(m.worldToLocal(galCam.position.clone())).addScalar(0.5);
+      const fr=m.userData.frames;                                            // 4D: swap textures by heartbeat phase
+      if(fr){ const t=Math.min(fr.T-1, Math.round(a*(fr.T-1)));
+        if(t!==fr.last){ const u=m.material.uniforms; u.uAnat.value=fr.aTex[t];
+          if(fr.fTex){ u.uMask.value=fr.mTex[t]; u.uField.value=fr.fTex[t]; } fr.last=t; } } });
+    if(galCtrls) galCtrls.update(); renderer.render(galScene, galCam);
+  }
+  else {
+    controls.update();
+    if(selMesh) selMesh.material.emissiveIntensity = 0.6+0.3*Math.sin(Date.now()*0.004);
+    renderer.render(scene, camera);
+  }
+})();
+
+document.getElementById('hudT').textContent='PIPELINE';
+document.getElementById('hudB').innerHTML=D.datasets.length+' datasets × '+D.stages.length+' stages.<br>Click a node → OPEN IN 3D.';
+
+// Land on the 3D GALLERY (home), honoring ?view= override
+const _v0 = new URLSearchParams(location.search).get('view');
+setView(['3d','g3d','mx','gallery'].includes(_v0) ? _v0 : 'g3d');
+</script>
+</body>
+</html>

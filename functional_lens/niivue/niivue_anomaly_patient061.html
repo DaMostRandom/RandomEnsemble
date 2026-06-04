@@ -1,0 +1,40 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Voxara anomaly — patient061</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{background:#05080f;color:#b8d0e8;font-family:'Courier New',monospace;overflow:hidden}
+#gl{position:fixed;inset:0}
+#hud{position:fixed;left:16px;top:14px;font-size:11px;z-index:5;pointer-events:none}
+#hud .t{color:#ff2d55;font-size:14px;font-weight:bold} #hud .s{color:#56708a;font-size:10px}
+#leg{position:fixed;right:16px;top:14px;z-index:5;font-size:10px;text-align:right;color:#56708a}
+#leg .bar{width:150px;height:12px;border-radius:6px;margin-left:auto;margin-top:4px;
+  background:linear-gradient(90deg,#0b1320 0%,#0b1320 30%,#ff6b35 70%,#ff2d55 100%)}
+#bar{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:5;background:#0b1320cc;
+  border:1px solid #1f2937;border-radius:10px;padding:10px 14px;display:flex;gap:14px;align-items:center;
+  backdrop-filter:blur(6px)}
+button{background:#0f172a;border:1px solid #1f3050;color:#00d4ff;font-family:inherit;font-size:12px;
+  padding:6px 12px;border-radius:6px;cursor:pointer}
+label{font-size:10px;color:#8aa0b8} input[type=range]{width:140px;accent-color:#ff2d55;vertical-align:middle}</style></head>
+<body><canvas id="gl"></canvas>
+<div id="hud"><div class="t">VOXARA — FUNCTIONAL ANOMALY (patient061 · NOR · EF 0.63)</div>
+<div class="s">red = low-strain anomaly (akinetic / dead) &nbsp;|&nbsp; transparent = normal thickening &nbsp; drag to rotate</div></div>
+<div id="leg">anomaly score<div class="bar"></div><div>0 (normal) &rarr; 1 (dead)</div></div>
+<div id="bar">
+ <label>threshold</label><input type="range" id="thr" min="0" max="0.9" step="0.05" value="0.25">
+ <label>opacity</label><input type="range" id="op" min="0" max="1" step="0.05" value="0.85">
+ <button id="mode">3D / slices</button>
+</div>
+<script type="module">
+import {Niivue} from "https://esm.sh/@niivue/niivue@0.44.2";
+const nv = new Niivue({backColor:[0.02,0.03,0.06,1], show3Dcrosshair:false});
+await nv.attachTo("gl");
+await nv.loadVolumes([
+  {url:"anatomy_patient061.nii.gz", colormap:"gray"},
+  {url:"anomaly_patient061.nii.gz", colormap:"red", cal_min:0.25, cal_max:1.0, opacity:0.85},
+]);
+nv.setSliceType(nv.sliceTypeRender); nv.setRenderAzimuthElevation(120, 14);
+const OV = nv.volumes[1];
+document.getElementById('thr').oninput = e => { OV.cal_min = +e.target.value; nv.updateGLVolume(); };
+document.getElementById('op').oninput  = e => { OV.opacity  = +e.target.value; nv.updateGLVolume(); };
+let render = true;
+document.getElementById('mode').onclick = () => { render = !render;
+  nv.setSliceType(render ? nv.sliceTypeRender : nv.sliceTypeMultiplanar); };
+</script></body></html>

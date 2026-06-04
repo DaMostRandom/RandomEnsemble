@@ -1,0 +1,19 @@
+{
+  "baselines": [
+    {
+      "model": "Global slope (FVC -= 2.5/week)",
+      "laplace": -6.8206,
+      "rmse_ml": 239.5
+    },
+    {
+      "model": "Per-patient linear fit",
+      "laplace": -6.701,
+      "rmse_ml": 211.6
+    },
+    {
+      "model": "Ridge on tabular features (5-CV)",
+      "laplace": -6.8475,
+      "rmse_ml": 229.4
+    }
+  ]
+}

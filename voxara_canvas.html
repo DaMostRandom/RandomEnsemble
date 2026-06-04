@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voxara — 3D Pipeline Canvas</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#05080f;color:#cfe0f0;font-family:'Courier New',monospace;overflow:hidden}
+  #gl{position:fixed;left:230px;top:0;width:calc(100vw - 230px);height:100vh;background:#05080f}
+  /* station rail */
+  #rail{position:fixed;left:0;top:0;width:230px;height:100vh;background:#0b1320;border-right:1px solid #16263c;
+    z-index:10;padding:14px 0;overflow-y:auto}
+  #rail h1{font-size:13px;color:#00d4ff;padding:6px 16px 4px;letter-spacing:2px}
+  #rail .sub{font-size:8px;color:#3a546e;padding:0 16px 12px}
+  .station{margin:4px 10px;padding:10px 12px;border:1px solid #16263c;border-radius:8px;cursor:pointer;
+    transition:all .15s;background:#0d1726}
+  .station:hover{border-color:#1f4060}
+  .station.active{border-color:#00d4ff;background:#0f2030;box-shadow:0 0 14px #00d4ff33}
+  .station .n{font-size:11px;font-weight:bold;letter-spacing:1px}
+  .station .r{font-size:8.5px;color:#7f9bb5;margin-top:3px;line-height:1.4}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  /* control bar */
+  #bar{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:20;background:#0b1320e6;
+    border:1px solid #16263c;border-radius:12px;padding:10px 16px;display:flex;gap:16px;align-items:center;
+    backdrop-filter:blur(8px);flex-wrap:wrap;max-width:calc(100vw - 280px)}
+  .ctl{display:flex;flex-direction:column;gap:3px}
+  .ctl label{font-size:8px;color:#5e7b96;letter-spacing:1px}
+  button{background:#0f1f30;border:1px solid #1f4060;color:#00d4ff;font-family:inherit;font-size:11px;
+    padding:6px 12px;border-radius:6px;cursor:pointer}
+  button.on{background:#13314f;color:#7fe0ff}
+  input[type=range]{width:120px;accent-color:#00d4ff}
+  /* text/result panel */
+  #info{position:fixed;right:16px;top:16px;width:300px;z-index:15;background:#0b1320e0;border:1px solid #16263c;
+    border-radius:10px;padding:14px 16px;backdrop-filter:blur(8px)}
+  #info .t{color:#00d4ff;font-size:13px;font-weight:bold;letter-spacing:1px}
+  #info .m{font-size:11px;color:#b8d0e8;margin-top:8px;line-height:1.6}
+  #info .res{font-size:10px;color:#7f9bb5;margin-top:8px;border-top:1px solid #16263c;padding-top:8px;line-height:1.7}
+  #info .res b{color:#39ff14}
+  #hint{position:fixed;left:246px;bottom:18px;font-size:9px;color:#3a546e;z-index:15}
+  #load{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:#5e7b96;font-size:12px;z-index:5}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="load">click a station →</div>
+
+<div id="rail">
+  <h1>VOXARA</h1><div class="sub">3D PIPELINE CANVAS · v1</div>
+  <div id="stations"></div>
+</div>
+
+<div id="info"><div class="t" id="iT">PIPELINE</div><div class="m" id="iM"></div><div class="res" id="iR"></div></div>
+
+<div id="bar">
+  <div class="ctl"><label>view</label><button id="bRender" class="on">3D render</button></div>
+  <div class="ctl"><label>section box (clip)</label><button id="bClip">clip OFF</button></div>
+  <div class="ctl"><label>clip depth</label><input type="range" id="cDepth" min="-0.6" max="0.6" step="0.02" value="0"></div>
+  <div class="ctl"><label>clip angle</label><input type="range" id="cAzi" min="0" max="360" step="5" value="0"></div>
+  <div class="ctl"><label>anomaly opacity</label><input type="range" id="cOp" min="0" max="1" step="0.05" value="0.85"></div>
+  <div class="ctl"><label>anomaly threshold</label><input type="range" id="cThr" min="0" max="0.9" step="0.05" value="0.25"></div>
+  <div class="ctl"><label>4D</label><button id="bPlay">▶ start</button></div>
+</div>
+<div id="hint">drag = rotate · scroll = zoom · clip ON then drag = steer the cut plane</div>
+
+<script type="module">
+import {Niivue} from "https://esm.sh/@niivue/niivue@0.44.2";
+
+// pipeline stations (real results; data wired where it exists today)
+const STN = [
+  {id:"ingest",  n:"① INGEST",      st:"#00ff88", r:"native 3D read",
+   m:"Raw scan loaded at native resolution. Clip it with the section box to see inside.",
+   res:"native 256² · no downsample for analysis",
+   vols:[{url:"functional_lens/niivue/anatomy_patient041.nii.gz", colormap:"gray"}], d4:false},
+  {id:"register",n:"② REGISTER φ",  st:"#ffc832", r:"deformation field · Dice 0.755",
+   m:"SIREN φ warps one frame onto another; its Jacobian is the physics. (4D beating heart — press start.)",
+   res:"<b>reg Dice 0.755</b> (VoxelMorph-class)",
+   vols:[{url:"functional_lens/niivue/anatomy_patient041.nii.gz", colormap:"gray"}], d4:false},
+  {id:"function",n:"③ FUNCTION",    st:"#00ff88", r:"strain/anomaly · MINF AUC 0.953",
+   m:"det(J)/strain painted on the muscle. The infarct = low-strain ANOMALY glows red. Drag opacity + threshold; clip to see the dead wall inside.",
+   res:"EF r=0.918 · <b>MINF AUC 0.953</b> · strain↔EF r=0.858 · no labels",
+   vols:[{url:"functional_lens/niivue/anatomy_patient041.nii.gz", colormap:"gray"},
+         {url:"functional_lens/niivue/anomaly_patient041.nii.gz", colormap:"red", cal_min:0.25, cal_max:1.0, opacity:0.85}], d4:false},
+  {id:"manifold",n:"④ MANIFOLD",    st:"#ffc832", r:"physics galaxy · AUC 0.885",
+   m:"Patient galaxy on scanner-invariant physics features. (Point cloud — Three.js view, next iteration.)",
+   res:"biology <b>AUC 0.885</b> beats learned encoders 0.698",
+   vols:[{url:"functional_lens/niivue/anatomy_patient041.nii.gz", colormap:"gray"}], d4:false},
+  {id:"forecast",n:"⑤ FORECAST",    st:"#ff2d78", r:"the Twin · TODO",
+   m:"Roll the organ forward in time. det(J) on longitudinal pairs → trajectory. (Brain atrophy v1/v2 failed — redirecting to large-deformation data.)",
+   res:"unproven · Pillar 3 open",
+   vols:[{url:"functional_lens/niivue/anatomy_patient041.nii.gz", colormap:"gray"}], d4:false},
+];
+
+const nv = new Niivue({backColor:[0.02,0.03,0.06,1], show3Dcrosshair:false, isColorbar:true});
+const ANAT = "functional_lens/niivue/anatomy_patient041.nii.gz";
+const NV = "functional_lens/niivue/";
+const MODES = {
+  strain: {ov:"err.nii.gz",    cmap:"plasma", min:0.05, max:0.6,  label:"RADIAL STRAIN E_rr",     note:"bright = wall thickening (alive); dark = infarct."},
+  ecc:    {ov:"ecc.nii.gz",    cmap:"cool",   min:0.0,  max:0.5,  label:"CIRCUMFERENTIAL E_cc",   note:"circumferential shortening (offset 0–0.5)."},
+  detj:   {ov:"detj.nii.gz",   cmap:"jet",    min:0.6,  max:1.4,  label:"det(J) VOLUME CHANGE",   note:"blue<1 shrink · red>1 expand. EF = 1 − mean det(J)."},
+  reg:    {ov:"regmag.nii.gz", cmap:"hot",    min:0.01, max:0.12, label:"REGISTRATION field φ",   note:"deformation magnitude — where the heart moves."},
+};
+await nv.attachTo("gl");
+nv.setSliceType(nv.sliceTypeRender);
+nv.setRenderAzimuthElevation(120,14);
+
+let clipOn=false, playing=false, cur=null;
+
+function renderStations(){
+  const el=document.getElementById("stations"); el.innerHTML="";
+  STN.forEach(s=>{
+    const d=document.createElement("div"); d.className="station"; d.id="stn_"+s.id;
+    d.innerHTML=`<div class="n"><span class="dot" style="background:${s.st}"></span>${s.n}</div><div class="r">${s.r}</div>`;
+    d.onclick=()=>load(s); el.appendChild(d);
+  });
+}
+async function load(s){
+  cur=s; document.getElementById("load").style.display="none";
+  document.querySelectorAll(".station").forEach(x=>x.classList.remove("active"));
+  const stn=document.getElementById("stn_"+s.id); if(stn) stn.classList.add("active");
+  document.getElementById("iT").textContent=s.n;
+  document.getElementById("iM").textContent=s.m;
+  document.getElementById("iR").innerHTML=s.res;
+  try{ await nv.loadVolumes(s.vols.map(v=>({...v}))); }catch(e){ document.getElementById("iM").textContent="load error: "+e; }
+  applyClip();
+}
+function applyClip(){
+  if(clipOn){ const az=+document.getElementById("cAzi").value, dp=+document.getElementById("cDepth").value;
+    nv.setClipPlane([dp, az, 0]); } else { nv.setClipPlane([2, 0, 0]); } // depth>1 = no clip
+}
+// controls
+document.getElementById("bRender").onclick=e=>{ const r=nv.sliceTypeRender===nv.opts.sliceType;
+  nv.setSliceType(r?nv.sliceTypeMultiplanar:nv.sliceTypeRender); e.target.classList.toggle("on"); e.target.textContent=r?"slices":"3D render"; };
+document.getElementById("bClip").onclick=e=>{ clipOn=!clipOn; e.target.classList.toggle("on",clipOn);
+  e.target.textContent=clipOn?"clip ON":"clip OFF"; applyClip(); };
+document.getElementById("cDepth").oninput=applyClip;
+document.getElementById("cAzi").oninput=applyClip;
+document.getElementById("cOp").oninput=e=>{ if(nv.volumes[1]){ nv.volumes[1].opacity=+e.target.value; nv.updateGLVolume(); } };
+document.getElementById("cThr").oninput=e=>{ if(nv.volumes[1]){ nv.volumes[1].cal_min=+e.target.value; nv.updateGLVolume(); } };
+let f4d=0;
+document.getElementById("bPlay").onclick=e=>{ playing=!playing; e.target.textContent=playing?"⏸ pause":"▶ start"; if(playing) tick(); };
+function tick(){ if(!playing) return; const v=nv.volumes[0]; const nF=(v&&v.nFrame4D)||1;
+  if(nF>1){ f4d=(f4d+1)%nF; nv.setFrame4D(v.id, f4d); } setTimeout(()=>{ if(playing) requestAnimationFrame(tick); }, 90); }
+
+renderStations();
+
+// opened from mission_control "OPEN IN 3D" with ?ds=&stage=&name=&sshort=
+const P = new URLSearchParams(location.search);
+if(P.get('ds')){
+  const ds=P.get('ds'), stage=P.get('stage')||'', name=P.get('name')||ds, sshort=P.get('sshort')||stage, mode=P.get('mode');
+  if(mode==='beat4d'){
+    document.querySelector('#rail .sub').textContent = name.toUpperCase()+' · BEATING 4D';
+    await load({id:'beat', n:name+'  ·  BEATING HEART (4D)', st:'#ff2d55', d4:true,
+      m:'17-frame cardiac cine playing in 3D (auto-started). Clip into the beating chambers; drag to rotate.',
+      res:'ACDC patient041 · 4D cine, 17 frames',
+      vols:[{url:"functional_lens/niivue/cardiac_4d.nii.gz", colormap:"gray"}]});
+    playing=true; document.getElementById('bPlay').textContent='⏸ pause'; tick();
+  } else if(MODES[mode]){
+    const M=MODES[mode];
+    document.querySelector('#rail .sub').textContent = name.toUpperCase()+' · '+M.label;
+    await load({id:mode, n:name+'  ·  '+M.label, st:'#00d4ff', d4:false,
+      m:M.note+' Drag opacity/threshold; clip to see inside; the colorbar is on the right.',
+      res:'crisp NiiVue · anatomy + overlay + colorbar',
+      vols:[{url:ANAT, colormap:"gray"}, {url:NV+M.ov, colormap:M.cmap, cal_min:M.min, cal_max:M.max, opacity:0.9}]});
+  } else {
+    const isCardiac = (ds==='acdc'), hasAnomaly = (ds==='acdc' && stage==='clinical');
+    const vols=[{url:"functional_lens/niivue/anatomy_patient041.nii.gz", colormap:"gray"}];
+    if(hasAnomaly) vols.push({url:"functional_lens/niivue/anomaly_patient041.nii.gz", colormap:"red", cal_min:0.25, cal_max:1.0, opacity:0.85});
+    const note = isCardiac
+      ? "Live cardiac volume"+(hasAnomaly?" + strain ANOMALY overlay (red = low-strain infarct). Drag opacity/threshold; clip to see inside. Press ▶ start for the 4D beat.":". Clip + render controls are live.")
+      : "Representative volume — native 3D ingestion for "+name+" is pending; clip / transparency / render controls are live so you can feel the interaction.";
+    document.querySelector('#rail .sub').textContent = name.toUpperCase()+' · '+sshort;
+    load({id:'node', n:name+'  ·  '+sshort, st:'#00d4ff', m:note, res:'opened from dashboard: '+name+' / '+sshort, vols, d4:false});
+  }
+} else {
+  load(STN[2]); // standalone: open FUNCTION (the live one) by default
+}
+</script>
+</body>
+</html>
